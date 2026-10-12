@@ -39,13 +39,13 @@ export function StatusBadge({
       defaultLabel: "Verified Landmark",
       icon: CheckCircle2,
       style:
-        "bg-[#881337]/10 text-[#881337] border-[#881337]/20 dark:bg-[#9F1239]/20 dark:text-rose-200 dark:border-[#9F1239]/40",
+        "bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700",
     },
     advisory: {
       defaultLabel: "Candidate Fixture",
       icon: AlertTriangle,
       style:
-        "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+        "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
     },
   };
 
@@ -59,7 +59,7 @@ export function StatusBadge({
         size === "sm" ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-xs sm:text-sm"
       } ${current.style} ${className}`}
     >
-      <IconComponent className={size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4"} aria-hidden="true" />
+      <IconComponent className={size === "sm" ? "w-3.5 h-3.5 shrink-0" : "w-4 h-4 shrink-0"} aria-hidden="true" />
       <span>{displayLabel}</span>
     </span>
   );

@@ -14,19 +14,18 @@ export function SectionHeading({
   className = "",
 }: SectionHeadingProps) {
   return (
-    <div className={`flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-4 ${className}`}>
+    <div className={`flex flex-row items-baseline justify-between gap-2 mb-3 ${className}`}>
       <div>
-        <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
-          <span className="w-1.5 h-5 rounded-full bg-[#881337] dark:bg-[#F59E0B]" aria-hidden="true" />
+        <h2 className="text-base sm:text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
           {title}
         </h2>
         {subtitle && (
-          <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {subtitle}
           </p>
         )}
       </div>
-      {action && <div className="self-start sm:self-auto">{action}</div>}
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
