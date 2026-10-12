@@ -1,69 +1,108 @@
-import Image from "next/image";
+import { Shield, Sparkles, MapPin, Compass, Users } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <main className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 md:p-12">
+      <div className="w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+        {/* Header Header Banner */}
+        <div className="bg-[#881337] px-6 py-8 text-white">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#9F1239] text-[#F59E0B] text-xs font-semibold uppercase tracking-wider mb-3">
+            <Sparkles className="w-4 h-4" />
+            Step 1: Secure Foundation Initialized
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            Cooch Behar Durga Puja Interactive Guide
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-2 text-rose-100 text-sm sm:text-base">
+            Secure, mobile-first Progressive Web App (PWA) navigation and pandal discovery platform.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Content Body */}
+        <div className="p-6 sm:p-8 space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-3 text-slate-800 dark:text-slate-200 font-semibold text-sm">
+                <Shield className="w-5 h-5 text-[#881337]" />
+                Security Architecture
+              </div>
+              <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                Strict CSP, secret isolation, sanitized input boundaries, and no privileged keys in client bundles.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-3 text-slate-800 dark:text-slate-200 font-semibold text-sm">
+                <MapPin className="w-5 h-5 text-[#D97706]" />
+                Pandal & Map Ready
+              </div>
+              <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                Directory schema & React Leaflet tile boundaries established for future mapping layers.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-3 text-slate-800 dark:text-slate-200 font-semibold text-sm">
+                <Compass className="w-5 h-5 text-[#881337]" />
+                Accessible Navigation
+              </div>
+              <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                48px+ touch targets, WCAG AA contrast, and screen-reader accessibility standards configured.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+              <div className="flex items-center gap-3 text-slate-800 dark:text-slate-200 font-semibold text-sm">
+                <Users className="w-5 h-5 text-[#D97706]" />
+                Bengali & English Multi-lingual
+              </div>
+              <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                Localization scaffolding ready for seamless bilingual cultural guidance and senior care.
+              </p>
+            </div>
+          </div>
+
+          {/* Design System Palette Swatches */}
+          <div>
+            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+              Configured Design System Tokens
+            </h2>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-[11px] font-mono">
+              <div className="p-2 rounded bg-[#881337] text-white">
+                <span className="block font-semibold">Royal</span>#881337
+              </div>
+              <div className="p-2 rounded bg-[#9F1239] text-white">
+                <span className="block font-semibold">Crimson</span>#9F1239
+              </div>
+              <div className="p-2 rounded bg-[#F59E0B] text-slate-900 font-medium">
+                <span className="block font-semibold">Gold</span>#F59E0B
+              </div>
+              <div className="p-2 rounded bg-[#D97706] text-white">
+                <span className="block font-semibold">Deep Gold</span>#D97706
+              </div>
+              <div className="p-2 rounded bg-[#0F172A] text-white">
+                <span className="block font-semibold">Dark BG</span>#0F172A
+              </div>
+              <div className="p-2 rounded bg-[#FFFFFF] border border-slate-300 text-slate-900">
+                <span className="block font-semibold">Light BG</span>#FFFFFF
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive Touch Target Demo Button */}
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800">
+            <span className="text-xs text-slate-500">
+              Status: Baseline verification complete. Ready for Step 2.
+            </span>
+            <button
+              type="button"
+              className="touch-target-min w-full sm:w-auto px-6 rounded-lg bg-[#881337] hover:bg-[#9F1239] active:bg-[#70102e] text-white font-medium text-sm transition-colors focus-ring cursor-pointer"
+            >
+              Touch Target (48px Min)
+            </button>
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

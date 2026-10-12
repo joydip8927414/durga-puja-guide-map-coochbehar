@@ -1,26 +1,50 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-royal-crimson: #881337;
+  --color-crimson-accent: #9F1239;
+  --color-temple-gold: #F59E0B;
+  --color-deep-gold: #D97706;
+  --color-dark-bg: #0F172A;
+  --color-light-bg: #FFFFFF;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  --background: #FFFFFF;
+  --foreground: #0F172A;
+  --royal-crimson: #881337;
+  --crimson-accent: #9F1239;
+  --temple-gold: #F59E0B;
+  --deep-gold: #D97706;
+  --dark-bg: #0F172A;
+  --light-bg: #FFFFFF;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0F172A;
+    --foreground: #F8FAFC;
   }
 }
 
+/* Base Accessibility & Touch Targets */
+.touch-target-min {
+  min-height: 48px;
+  min-width: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid #F59E0B;
+  outline-offset: 2px;
+}
+
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
