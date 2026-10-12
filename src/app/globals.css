@@ -1,51 +1,61 @@
 @import "tailwindcss";
 
 @theme {
-  --color-page-bg: #F8FAFC;
+  --color-page-bg: #FFFDF7;
+  --color-map-surface: #F4F1E8;
   --color-surface: #FFFFFF;
-  --color-primary-text: #1F2937;
-  --color-secondary-text: #64748B;
-  --color-border: #E2E8F0;
-  --color-primary-crimson: #9F1239;
-  --color-crimson-hover: #881337;
-  --color-warm-gold: #D97706;
+  --color-primary-text: #292524;
+  --color-secondary-text: #78716C;
+  --color-border: #E7E0D2;
+  --color-primary-red: #C8102E;
+  --color-deep-red: #9F1239;
+  --color-red-hover: #881337;
+  --color-festive-gold: #D4A72C;
+  --color-gold-hover: #B5891E;
+  --color-success-green: #16A34A;
+  --color-alert-amber: #D97706;
+  --color-alert-red: #DC2626;
 }
 
 :root {
-  --background: #F8FAFC;
-  --foreground: #1F2937;
+  --background: #FFFDF7;
+  --foreground: #292524;
   --card-bg: #FFFFFF;
-  --card-border: #E2E8F0;
-  --muted-text: #64748B;
-  --primary-crimson: #9F1239;
-  --crimson-hover: #881337;
-  --warm-gold: #D97706;
+  --card-border: #E7E0D2;
+  --muted-text: #78716C;
+  --primary-red: #C8102E;
+  --deep-red: #9F1239;
+  --red-hover: #881337;
+  --festive-gold: #D4A72C;
+  --map-surface: #F4F1E8;
 }
 
-/* Retain optional dark mode cleanly with subdued natural slate */
+/* Dark mode — warm slate (optional, not default) */
 html.dark {
-  --background: #0F172A;
-  --foreground: #F8FAFC;
-  --card-bg: #1E293B;
-  --card-border: #334155;
-  --muted-text: #94A3B8;
-  --primary-crimson: #BE123C;
-  --crimson-hover: #9F1239;
-  --warm-gold: #F59E0B;
+  --background: #1C1917;
+  --foreground: #FAF7F2;
+  --card-bg: #292524;
+  --card-border: #44403C;
+  --muted-text: #A8A29E;
+  --primary-red: #E11D48;
+  --deep-red: #BE123C;
+  --red-hover: #9F1239;
+  --festive-gold: #F59E0B;
+  --map-surface: #292524;
 }
 
-/* Senior Citizen Accessibility Mode: 115% text scale & larger touch targets */
+/* Senior Citizen Accessibility Mode */
 html.senior-mode {
   font-size: 115%;
 }
 
 html.senior-mode .touch-target-min {
-  min-height: 52px;
-  min-width: 52px;
+  min-height: 56px;
+  min-width: 56px;
   font-size: 1.05rem;
 }
 
-/* Base Accessibility & 48px Minimum Touch Targets (WCAG 2.5.5 / 2.5.8) */
+/* Base Accessibility — 48px minimum touch targets (WCAG 2.5.5) */
 .touch-target-min {
   min-height: 48px;
   min-width: 48px;
@@ -54,14 +64,13 @@ html.senior-mode .touch-target-min {
   justify-content: center;
 }
 
-/* High-visibility Keyboard Focus Indicator (WCAG 2.4.7 & 2.4.11) */
+/* High-visibility Keyboard Focus Indicator (WCAG 2.4.7) */
 .focus-ring {
   outline: 2px solid transparent;
   outline-offset: 2px;
 }
-
 .focus-ring:focus-visible {
-  outline: 3px solid #D97706;
+  outline: 3px solid #D4A72C;
   outline-offset: 2px;
 }
 
@@ -91,4 +100,40 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Map panel: full viewport minus bottom nav */
+.map-panel-mobile {
+  height: calc(100dvh - 4rem);
+}
+.map-panel-desktop {
+  height: calc(100dvh - 5rem);
+}
+
+/* Festive marker pulse animation */
+@keyframes marker-pulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%       { opacity: 0.3; transform: scale(1.5); }
+}
+.marker-pulse {
+  animation: marker-pulse 2s ease-in-out infinite;
+}
+
+/* Bottom sheet slide-up */
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.slide-up {
+  animation: slide-up 0.22s ease-out forwards;
+}
+
+/* Pandal card hover lift */
+.pandal-card-hover {
+  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+.pandal-card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(200, 16, 46, 0.08);
+  border-color: #D4A72C;
 }
