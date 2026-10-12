@@ -139,6 +139,16 @@ To execute the test suite in `psql` or the Supabase SQL editor:
 
 ---
 
+## Deployment to Vercel
+
+The application is optimized for deployment on **Vercel** with Next.js App Router, Turbopack, and Supabase integration.
+
+- **Quick Deploy via Dashboard**: Import repository `joydip8927414/durga-puja-guide-map-coochbehar` on [vercel.com](https://vercel.com).
+- **Environment Variables**: Configure `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
+- **Full Guide**: See [docs/DEPLOYMENT_VERCEL.md](docs/DEPLOYMENT_VERCEL.md) for step-by-step instructions, CLI deployment, custom domain setup, and pre-flight checklists.
+
+---
+
 ## Project Structure
 
 ```

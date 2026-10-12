@@ -8,7 +8,7 @@ const contentSecurityPolicy = `
   default-src 'self';
   script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval'" : ""};
   style-src 'self' 'unsafe-inline';
-  img-src 'self' blob: data: https://*.tile.openstreetmap.org https://tile.openstreetmap.org;
+  img-src 'self' blob: data: https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.supabase.co;
   font-src 'self' data:;
   connect-src 'self' https://*.supabase.co;
   frame-ancestors 'none';
