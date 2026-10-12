@@ -18,20 +18,20 @@ export function FilterChip({
     <button
       type={type}
       aria-pressed={active}
-      className={`touch-target-min px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors select-none cursor-pointer focus-ring whitespace-nowrap border ${
+      className={`touch-target-min px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold transition-colors select-none cursor-pointer focus-ring whitespace-nowrap border ${
         active
-          ? "bg-[#9F1239] border-[#9F1239] text-white shadow-2xs"
-          : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+          ? "bg-[#C8102E] border-[#C8102E] text-white shadow-sm"
+          : "bg-white dark:bg-stone-900 border-[#E7E0D2] dark:border-stone-700 text-[#292524] dark:text-stone-200 hover:bg-[#FFF8E7] dark:hover:bg-stone-800"
       } ${className}`}
       {...props}
     >
       <span>{label}</span>
       {count !== undefined && (
         <span
-          className={`ml-1.5 px-1.5 py-0.2 rounded text-[11px] font-semibold ${
+          className={`ml-1.5 px-1.5 py-0.2 rounded-full text-[11px] font-bold ${
             active
-              ? "bg-[#881337] text-white"
-              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+              ? "bg-[#9F1239] text-white"
+              : "bg-[#F4F1E8] dark:bg-stone-800 text-[#78716C] dark:text-stone-400"
           }`}
         >
           {count}

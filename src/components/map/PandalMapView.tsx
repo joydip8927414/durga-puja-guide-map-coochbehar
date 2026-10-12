@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   Search,
   Navigation,
@@ -9,27 +9,27 @@ import {
   Compass,
   Plus,
   Minus,
-  Footprints,
-  Car,
-  Clock,
-  Layers,
   MapPin,
   X,
+  LocateFixed,
+  Route,
+  ListFilter,
+  Clock,
+  Car,
+  Footprints,
 } from "lucide-react";
 import { PandalCardProps } from "../pandals/PandalCard";
 import { StatusBadge } from "../ui/StatusBadge";
-import { FilterChip } from "../ui/FilterChip";
 
 export interface PandalMapViewProps {
   pandals: PandalCardProps[];
   savedPandalIds: Set<string>;
   onToggleSave: (id: string) => void;
   onOpenDetailsModal: (pandal: PandalCardProps) => void;
+  onNavigateToSubmit?: () => void;
   className?: string;
 }
 
-// Bounding coordinates for Cooch Behar town view
-// Cooch Behar center: 26.3239 N, 89.4510 E
 interface MapCoordinatePoint {
   id: string;
   name: string;
@@ -39,73 +39,68 @@ interface MapCoordinatePoint {
   pandal: PandalCardProps;
 }
 
+// Real approximate coordinates for Cooch Behar localities
+const COORDS_MAP: Record<string, { lat: number; lng: number }> = {
+  "boro-debi-bari":    { lat: 26.3245, lng: 89.4522 }, // Debibari / Madan Mohan Bari Ward
+  "subhash-pally-club": { lat: 26.3288, lng: 89.4455 }, // Subhash Pally / Ward 10
+  "guriahati-club":    { lat: 26.3122, lng: 89.4678 }, // Guriahati GP — south-east
+  "khagrabari-club":   { lat: 26.3456, lng: 89.4312 }, // Khagrabari Bypass — north-west
+  "rocky-club":        { lat: 26.3195, lng: 89.4421 }, // New Town / Kalighat Road
+};
+
+// SVG canvas for Cooch Behar bounding box
+const MIN_LAT = 26.300;
+const MAX_LAT = 26.360;
+const MIN_LNG = 89.420;
+const MAX_LNG = 89.485;
+
+function toMapXY(lat: number, lng: number): { x: number; y: number } {
+  const x = ((lng - MIN_LNG) / (MAX_LNG - MIN_LNG)) * 100;
+  const y = ((MAX_LAT - lat) / (MAX_LAT - MIN_LAT)) * 100; // inverted: north = up
+  return {
+    x: Math.max(5, Math.min(95, x)),
+    y: Math.max(5, Math.min(95, y)),
+  };
+}
+
+const CROWD_COLOR: Record<string, { fill: string; ring: string; text: string }> = {
+  LOW:  { fill: "#16A34A", ring: "#BBF7D0", text: "Low Crowd" },
+  MED:  { fill: "#D97706", ring: "#FDE68A", text: "Moderate Crowd" },
+  HIGH: { fill: "#DC2626", ring: "#FECACA", text: "Heavy Crowd" },
+};
+
 export function PandalMapView({
   pandals,
   savedPandalIds,
   onToggleSave,
   onOpenDetailsModal,
+  onNavigateToSubmit,
   className = "",
 }: PandalMapViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("all");
-  const [selectedPandalId, setSelectedPandalId] = useState<string | null>(pandals[0]?.id || null);
+  const [selectedFilter, setSelectedFilter] = useState<"all" | "featured" | "heritage" | "nearby">("all");
+  const [selectedPandalId, setSelectedPandalId] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [showRouteLine, setShowRouteLine] = useState(false);
-  const [showNearbyOnly, setShowNearbyOnly] = useState(false);
+  const [showRoute, setShowRoute] = useState(false);
+  const [locationDenied, setLocationDenied] = useState(false);
 
-  // Geographic mapping to SVG coordinates
-  // Range: Lat 26.305 to 26.355, Lng 89.420 to 89.480
-  const minLat = 26.305;
-  const maxLat = 26.355;
-  const minLng = 89.42;
-  const maxLng = 89.48;
+  const geoPoints: MapCoordinatePoint[] = useMemo(() =>
+    pandals.map((p) => {
+      const c = COORDS_MAP[p.codeName] ?? { lat: 26.3239, lng: 89.451 };
+      return { id: p.id, name: p.name, codeName: p.codeName, lat: c.lat, lng: c.lng, pandal: p };
+    }),
+  [pandals]);
 
-  // Convert lat/lng to percentage X/Y
-  const getMapPosition = (lat: number, lng: number) => {
-    const x = ((lng - minLng) / (maxLng - minLng)) * 100;
-    // Latitude is inverted on Y axis (higher lat = higher up = lower Y)
-    const y = ((maxLat - lat) / (maxLat - minLat)) * 100;
-    return {
-      x: Math.max(10, Math.min(90, x)),
-      y: Math.max(10, Math.min(90, y)),
-    };
-  };
-
-  // Mock geographic placements aligned with real Cooch Behar localities
-  const geoPoints: MapCoordinatePoint[] = useMemo(() => {
-    const coordsMap: Record<string, { lat: number; lng: number }> = {
-      "boro-debi-bari": { lat: 26.3245, lng: 89.4522 },
-      "subhash-pally-club": { lat: 26.3288, lng: 89.4455 },
-      "guriahati-club": { lat: 26.3122, lng: 89.4678 },
-      "khagrabari-club": { lat: 26.3456, lng: 89.4312 },
-      "rocky-club": { lat: 26.3195, lng: 89.4421 },
-    };
-
-    return pandals.map((p) => {
-      const c = coordsMap[p.codeName] || { lat: 26.3239, lng: 89.451 };
-      return {
-        id: p.id,
-        name: p.name,
-        codeName: p.codeName,
-        lat: c.lat,
-        lng: c.lng,
-        pandal: p,
-      };
-    });
-  }, [pandals]);
-
-  // Filtered map pins
   const filteredPins = useMemo(() => {
     return geoPoints.filter((pt) => {
-      if (showNearbyOnly) {
-        // Town center radius only
+      // Category filters
+      if (selectedFilter === "featured" && pt.pandal.tier !== "top_5" && pt.pandal.tier !== "top_10") return false;
+      if (selectedFilter === "heritage" && pt.pandal.tier !== "top_5") return false;
+      if (selectedFilter === "nearby") {
+        // Town-centre radius: exclude Guriahati and Khagrabari
         if (pt.codeName === "khagrabari-club" || pt.codeName === "guriahati-club") return false;
       }
-      if (selectedFilter === "top_5" && pt.pandal.tier !== "top_5") return false;
-      if (selectedFilter === "top_10" && pt.pandal.tier !== "top_5" && pt.pandal.tier !== "top_10")
-        return false;
-      if (selectedFilter === "low_crowd" && pt.pandal.crowdLevel !== "LOW") return false;
-
+      // Search
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         return (
@@ -116,372 +111,475 @@ export function PandalMapView({
       }
       return true;
     });
-  }, [geoPoints, selectedFilter, searchQuery, showNearbyOnly]);
+  }, [geoPoints, selectedFilter, searchQuery]);
 
-  const selectedPandal = useMemo(() => {
-    return pandals.find((p) => p.id === selectedPandalId) || null;
-  }, [pandals, selectedPandalId]);
+  const selectedPandal = useMemo(
+    () => pandals.find((p) => p.id === selectedPandalId) || null,
+    [pandals, selectedPandalId]
+  );
+
+  const handleLocate = useCallback(() => {
+    if (!navigator.geolocation) { setLocationDenied(true); return; }
+    navigator.geolocation.getCurrentPosition(
+      () => { /* In production: pan map to user position */ },
+      () => setLocationDenied(true),
+      { timeout: 6000 }
+    );
+  }, []);
+
+  // Route path through saved pandals
+  const routePoints = useMemo(() => {
+    if (!showRoute) return [];
+    return geoPoints
+      .filter((pt) => savedPandalIds.has(pt.id))
+      .map((pt) => toMapXY(pt.lat, pt.lng));
+  }, [geoPoints, savedPandalIds, showRoute]);
+
+  const filters: Array<{ key: typeof selectedFilter; label: string }> = [
+    { key: "all",      label: "All Pandals" },
+    { key: "featured", label: "Featured" },
+    { key: "heritage", label: "Heritage" },
+    { key: "nearby",   label: "Nearby" },
+  ];
 
   return (
     <div
-      className={`relative w-full h-[calc(100vh-8.5rem)] md:h-[calc(100vh-5.5rem)] bg-[#EBF2F7] dark:bg-[#0F172A] overflow-hidden select-none flex flex-col ${className}`}
+      className={`relative w-full bg-[#F4F1E8] dark:bg-[#1C1917] overflow-hidden select-none flex flex-col map-panel-mobile md:map-panel-desktop ${className}`}
     >
-      {/* 1. Top Controls Bar: Search & Filter Pills */}
-      <div className="absolute top-3 left-3 right-3 z-30 flex flex-col gap-2 max-w-xl mx-auto pointer-events-none">
-        {/* Search Bar */}
-        <div className="pointer-events-auto bg-white dark:bg-slate-900 rounded-xl shadow-md border border-slate-200 dark:border-slate-800 flex items-center px-3 py-1.5 gap-2">
-          <Search className="w-4 h-4 text-slate-400 shrink-0" />
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search pandals on map..."
-            className="w-full text-xs sm:text-sm bg-transparent border-none outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400 py-1"
-          />
-          {searchQuery && (
+      {/* ── 1. Floating top bar: Durga avatar + search + filters ── */}
+      <div className="absolute top-3 left-3 right-3 z-30 flex flex-col gap-2 pointer-events-none">
+        {/* Search row */}
+        <div className="pointer-events-auto flex items-center gap-2">
+          {/* Maa Durga avatar */}
+          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-[#D4A72C] shadow-md shrink-0 bg-[#FFF8E7]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/maa-durga.jpg"
+              alt="Maa Durga — Puja Guide"
+              width={40}
+              height={40}
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          {/* Search input */}
+          <div className="flex-1 bg-white dark:bg-stone-900 rounded-xl shadow-md border border-[#E7E0D2] dark:border-stone-700 flex items-center px-3 py-2 gap-2">
+            <Search className="w-4 h-4 text-[#78716C] shrink-0" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search pandals…"
+              aria-label="Search pandals on map"
+              className="w-full text-sm bg-transparent border-none outline-none text-[#292524] dark:text-stone-100 placeholder:text-[#A8A29E] py-0.5"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+                className="p-1 text-[#A8A29E] hover:text-[#78716C] focus-ring rounded"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {/* Filter icon */}
             <button
               type="button"
-              onClick={() => setSearchQuery("")}
-              className="p-1 text-slate-400 hover:text-slate-600"
+              aria-label="Open filters"
+              className="shrink-0 p-1 text-[#C8102E] hover:text-[#9F1239] focus-ring rounded"
             >
-              <X className="w-3.5 h-3.5" />
+              <ListFilter className="w-4 h-4" />
             </button>
-          )}
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 shrink-0">
-            {filteredPins.length} shown
-          </span>
+          </div>
         </div>
 
-        {/* Compact Filter Row */}
-        <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-          <FilterChip
-            label="All"
-            count={pandals.length}
-            active={selectedFilter === "all" && !showNearbyOnly}
-            onClick={() => {
-              setSelectedFilter("all");
-              setShowNearbyOnly(false);
-            }}
-            className="shadow-2xs text-xs py-1 px-2.5 h-8 min-h-0"
-          />
-          <FilterChip
-            label="Top 5"
-            active={selectedFilter === "top_5"}
-            onClick={() => setSelectedFilter("top_5")}
-            className="shadow-2xs text-xs py-1 px-2.5 h-8 min-h-0"
-          />
-          <FilterChip
-            label="Top 10"
-            active={selectedFilter === "top_10"}
-            onClick={() => setSelectedFilter("top_10")}
-            className="shadow-2xs text-xs py-1 px-2.5 h-8 min-h-0"
-          />
-          <FilterChip
-            label="Low Crowd"
-            active={selectedFilter === "low_crowd"}
-            onClick={() => setSelectedFilter("low_crowd")}
-            className="shadow-2xs text-xs py-1 px-2.5 h-8 min-h-0"
-          />
+        {/* Filter chips */}
+        <div className="pointer-events-auto flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          {filters.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              aria-pressed={selectedFilter === f.key}
+              onClick={() => setSelectedFilter(f.key)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shadow-sm border transition-all focus-ring cursor-pointer ${
+                selectedFilter === f.key
+                  ? "bg-[#C8102E] border-[#C8102E] text-white"
+                  : "bg-white dark:bg-stone-900 border-[#E7E0D2] dark:border-stone-700 text-[#292524] dark:text-stone-200 hover:bg-[#FFF8E7]"
+              }`}
+            >
+              {f.label}
+              {f.key === "all" && (
+                <span className={`ml-1 text-[10px] ${selectedFilter === "all" ? "opacity-75" : "text-[#78716C]"}`}>
+                  ({filteredPins.length})
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* 2. Map Canvas (Clean Vector Map Representation with Real Road Geometry of Cooch Behar) */}
-      <div className="relative flex-1 w-full h-full cursor-grab active:cursor-grabbing overflow-hidden">
+      {/* ── 2. SVG Map canvas ── */}
+      <div className="relative flex-1 w-full overflow-hidden cursor-grab active:cursor-grabbing">
         <svg
           viewBox="0 0 1000 800"
-          className="w-full h-full object-cover transition-transform duration-300"
-          style={{
-            transform: `scale(${zoomLevel})`,
-            transformOrigin: "50% 50%",
-          }}
+          className="w-full h-full object-cover"
+          style={{ transform: `scale(${zoomLevel})`, transformOrigin: "50% 50%", transition: "transform 0.2s ease" }}
+          aria-label="Interactive map of Cooch Behar pandal locations"
+          role="img"
         >
           <defs>
-            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#E2E8F0" strokeWidth="0.5" />
+            {/* Subtle warm grid */}
+            <pattern id="warmgrid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#D6D0C4" strokeWidth="0.4" />
             </pattern>
+            {/* Marker drop shadow */}
+            <filter id="marker-shadow" x="-40%" y="-40%" width="180%" height="180%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#00000033" />
+            </filter>
+            {/* Gold glow for selected */}
+            <filter id="gold-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feFlood floodColor="#D4A72C" floodOpacity="0.5" result="color" />
+              <feComposite in="color" in2="blur" operator="in" result="glow" />
+              <feMerge><feMergeNode in="glow" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
           </defs>
 
-          {/* Map Base Canvas */}
-          <rect width="1000" height="800" fill="#F1F5F9" />
-          <rect width="1000" height="800" fill="url(#grid)" />
+          {/* Warm base */}
+          <rect width="1000" height="800" fill="#F0EBE0" />
+          <rect width="1000" height="800" fill="url(#warmgrid)" />
 
-          {/* Torsa River representation (flows southwest through Cooch Behar) */}
-          <path
-            d="M 120 0 Q 250 250 320 400 T 260 800"
-            fill="none"
-            stroke="#BAE6FD"
-            strokeWidth="38"
-            strokeLinecap="round"
-          />
-          <path
-            d="M 120 0 Q 250 250 320 400 T 260 800"
-            fill="none"
-            stroke="#7DD3FC"
-            strokeWidth="24"
-            strokeLinecap="round"
-          />
-          <text x="210" y="320" fill="#0284C7" fontSize="11" fontWeight="600" opacity="0.8">
-            Torsa River
-          </text>
+          {/* Torsa River */}
+          <path d="M 100 0 Q 240 240 310 395 T 248 800" fill="none" stroke="#BFD8F0" strokeWidth="40" strokeLinecap="round" />
+          <path d="M 100 0 Q 240 240 310 395 T 248 800" fill="none" stroke="#93C5E8" strokeWidth="26" strokeLinecap="round" />
+          <text x="195" y="300" fill="#2C85C1" fontSize="11" fontWeight="700" opacity="0.9" transform="rotate(-40, 195, 300)">Torsa River</text>
 
-          {/* Sagar Dighi Water Body */}
-          <rect x="520" y="370" width="80" height="60" rx="10" fill="#7DD3FC" stroke="#38BDF8" strokeWidth="2" />
-          <text x="532" y="405" fill="#0369A1" fontSize="10" fontWeight="bold">
-            Sagar Dighi
-          </text>
+          {/* Sagar Dighi */}
+          <ellipse cx="560" cy="398" rx="50" ry="35" fill="#93C5E8" stroke="#60A5D0" strokeWidth="1.5" />
+          <text x="533" y="401" fill="#1E6B9C" fontSize="9.5" fontWeight="700">Sagar Dighi</text>
 
-          {/* Major Roads / Arterial Corridors of Cooch Behar */}
-          {/* N.N. Road / Station Road */}
-          <path d="M 200 420 L 850 390" fill="none" stroke="#CBD5E1" strokeWidth="12" />
-          <path d="M 200 420 L 850 390" fill="none" stroke="#FFFFFF" strokeWidth="8" />
+          {/* Rajbari Palace Park */}
+          <rect x="430" y="248" width="85" height="65" rx="8" fill="#D1FAE5" stroke="#6EE7B7" strokeWidth="1.5" />
+          <text x="446" y="280" fill="#047857" fontSize="9" fontWeight="700">Rajbari</text>
+          <text x="441" y="292" fill="#047857" fontSize="9">Palace Park</text>
 
-          {/* B.S. Road (Bhabaniganj Street) */}
-          <path d="M 560 120 L 550 720" fill="none" stroke="#CBD5E1" strokeWidth="10" />
-          <path d="M 560 120 L 550 720" fill="none" stroke="#FFFFFF" strokeWidth="6" />
+          {/* N.N. Road / Station Road (main artery) */}
+          <path d="M 180 410 L 860 380" fill="none" stroke="#D4CAB8" strokeWidth="14" strokeLinecap="round" />
+          <path d="M 180 410 L 860 380" fill="none" stroke="#FFFFFF"  strokeWidth="9"  strokeLinecap="round" />
+          <text x="350" y="404" fill="#9D9487" fontSize="9" fontWeight="600">N.N. Road</text>
 
-          {/* Bypass Connector to Khagrabari */}
-          <path d="M 320 180 L 820 160" fill="none" stroke="#E2E8F0" strokeWidth="8" />
-          <path d="M 320 180 L 820 160" fill="none" stroke="#FFFFFF" strokeWidth="5" />
+          {/* B.S. Road */}
+          <path d="M 555 115 L 545 720" fill="none" stroke="#D4CAB8" strokeWidth="11" strokeLinecap="round" />
+          <path d="M 555 115 L 545 720" fill="none" stroke="#FFFFFF"  strokeWidth="7"  strokeLinecap="round" />
 
-          {/* Guriahati Link Road */}
-          <path d="M 550 480 L 880 680" fill="none" stroke="#E2E8F0" strokeWidth="8" />
-          <path d="M 550 480 L 880 680" fill="none" stroke="#FFFFFF" strokeWidth="5" />
+          {/* Bypass road */}
+          <path d="M 315 175 L 825 155" fill="none" stroke="#E2D9CB" strokeWidth="9" strokeLinecap="round" />
+          <path d="M 315 175 L 825 155" fill="none" stroke="#FFFFFF"  strokeWidth="6" strokeLinecap="round" />
+          <text x="400" y="148" fill="#B5A898" fontSize="8.5">Bypass Road</text>
 
-          {/* Cooch Behar Palace Ground area */}
-          <rect x="420" y="240" width="90" height="70" rx="8" fill="#DCFCE7" stroke="#86EFAC" strokeWidth="1.5" />
-          <text x="432" y="280" fill="#15803D" fontSize="10" fontWeight="bold">
-            Rajbari Park
-          </text>
+          {/* Guriahati link road */}
+          <path d="M 548 475 L 875 675" fill="none" stroke="#E2D9CB" strokeWidth="9" strokeLinecap="round" />
+          <path d="M 548 475 L 875 675" fill="none" stroke="#FFFFFF"  strokeWidth="6" strokeLinecap="round" />
 
-          {/* Route Line Connector if active */}
-          {showRouteLine && (
-            <path
-              d="M 550 400 L 480 340 L 720 580 L 380 220"
+          {/* Route line — saved pandals */}
+          {showRoute && routePoints.length > 1 && (
+            <polyline
+              points={routePoints.map((p) => `${(p.x / 100) * 1000},${(p.y / 100) * 800}`).join(" ")}
               fill="none"
-              stroke="#9F1239"
-              strokeWidth="4"
-              strokeDasharray="8 6"
+              stroke="#C8102E"
+              strokeWidth="5"
+              strokeDasharray="10 7"
               strokeLinecap="round"
+              opacity="0.85"
             />
           )}
 
-          {/* Interactive Pandal Markers */}
+          {/* Pandal Markers */}
           {filteredPins.map((pt) => {
-            const pos = getMapPosition(pt.lat, pt.lng);
-            // Map percentage to 1000x800 SVG canvas
-            const cx = (pos.x / 100) * 1000;
-            const cy = (pos.y / 100) * 800;
+            const { x: pctX, y: pctY } = toMapXY(pt.lat, pt.lng);
+            const cx = (pctX / 100) * 1000;
+            const cy = (pctY / 100) * 800;
             const isSelected = pt.id === selectedPandalId;
-
-            // Marker colors based on crowd status
-            const markerBg =
-              pt.pandal.crowdLevel === "LOW"
-                ? "#10B981"
-                : pt.pandal.crowdLevel === "HIGH"
-                ? "#E11D48"
-                : "#F59E0B";
+            const crowd = pt.pandal.crowdLevel ?? "MED";
+            const colors = CROWD_COLOR[crowd] ?? CROWD_COLOR.MED;
 
             return (
               <g
                 key={pt.id}
-                onClick={() => setSelectedPandalId(pt.id)}
-                className="cursor-pointer transition-transform hover:scale-110"
-                style={{ transformOrigin: `${cx}px ${cy}px` }}
+                onClick={() => setSelectedPandalId(isSelected ? null : pt.id)}
+                className="cursor-pointer"
+                style={{ transition: "transform 0.15s ease", transformOrigin: `${cx}px ${cy}px` }}
               >
-                {/* Selected pulse ring */}
+                {/* Selection pulse ring */}
                 {isSelected && (
-                  <circle cx={cx} cy={cy - 22} r="26" fill="#9F1239" opacity="0.18" />
+                  <circle
+                    cx={cx} cy={cy - 22}
+                    r="30"
+                    fill={colors.ring}
+                    opacity="0.6"
+                    className="marker-pulse"
+                  />
                 )}
 
-                {/* Marker Pin Body */}
+                {/* Pin body */}
                 <path
-                  d={`M ${cx} ${cy} L ${cx - 14} ${cy - 24} A 14 14 0 1 1 ${cx + 14} ${cy - 24} Z`}
-                  fill={isSelected ? "#9F1239" : "#FFFFFF"}
-                  stroke={isSelected ? "#881337" : "#64748B"}
-                  strokeWidth={isSelected ? "2" : "1.5"}
-                  filter="drop-shadow(0px 2px 3px rgba(0,0,0,0.2))"
+                  d={`M ${cx} ${cy} L ${cx - 13} ${cy - 22} A 13 13 0 1 1 ${cx + 13} ${cy - 22} Z`}
+                  fill={isSelected ? "#C8102E" : "#FFFFFF"}
+                  stroke={isSelected ? "#9F1239" : "#D4A72C"}
+                  strokeWidth={isSelected ? 2.5 : 2}
+                  filter={isSelected ? "url(#gold-glow)" : "url(#marker-shadow)"}
                 />
 
-                {/* Status Indicator Dot inside Pin */}
-                <circle cx={cx} cy={cy - 24} r="6.5" fill={markerBg} />
+                {/* Heritage tier crown / dot */}
+                {pt.pandal.tier === "top_5" ? (
+                  // Heritage gold star
+                  <text
+                    x={cx} y={cy - 18}
+                    fill={isSelected ? "#FFF8E7" : "#D4A72C"}
+                    fontSize="13"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                  >★</text>
+                ) : (
+                  // Crowd status dot
+                  <circle cx={cx} cy={cy - 22} r="6" fill={colors.fill} />
+                )}
 
-                {/* Label Tag below marker */}
+                {/* Name label */}
                 <rect
-                  x={cx - 50}
-                  y={cy + 4}
-                  width="100"
-                  height="18"
+                  x={cx - 48} y={cy + 5}
+                  width="96" height="17"
                   rx="4"
-                  fill="#FFFFFF"
-                  stroke="#CBD5E1"
+                  fill={isSelected ? "#C8102E" : "#FFFFFF"}
+                  stroke={isSelected ? "#9F1239" : "#E7E0D2"}
                   strokeWidth="0.8"
+                  opacity="0.96"
                 />
                 <text
-                  x={cx}
-                  y={cy + 16}
-                  fill="#1E293B"
-                  fontSize="9.5"
-                  fontWeight="600"
+                  x={cx} y={cy + 16}
+                  fill={isSelected ? "#FFFFFF" : "#292524"}
+                  fontSize="9"
+                  fontWeight="700"
                   textAnchor="middle"
                 >
-                  {pt.name.split(" ")[0]}
+                  {pt.name.split(" ").slice(0, 2).join(" ")}
                 </text>
               </g>
             );
           })}
         </svg>
 
-        {/* 3. Floating Map Controls (Right Side) */}
-        <div className="absolute right-3 bottom-36 sm:bottom-32 z-20 flex flex-col gap-2">
-          {/* Zoom In */}
+        {/* ── 3. Floating right controls: Zoom & Recenter ── */}
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2">
           <button
             type="button"
-            onClick={() => setZoomLevel((z) => Math.min(2.0, z + 0.25))}
-            aria-label="Zoom in on map"
-            className="w-10 h-10 rounded-lg bg-white dark:bg-slate-900 shadow-md border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center hover:bg-slate-50 focus-ring"
+            onClick={() => setZoomLevel((z) => Math.min(2.2, z + 0.25))}
+            aria-label="Zoom in"
+            className="w-11 h-11 rounded-xl bg-white dark:bg-stone-900 shadow-md border border-[#E7E0D2] dark:border-stone-700 text-[#292524] dark:text-stone-200 flex items-center justify-center hover:bg-[#FFF8E7] focus-ring cursor-pointer"
           >
             <Plus className="w-4 h-4" />
           </button>
-
-          {/* Zoom Out */}
           <button
             type="button"
-            onClick={() => setZoomLevel((z) => Math.max(0.8, z - 0.25))}
-            aria-label="Zoom out on map"
-            className="w-10 h-10 rounded-lg bg-white dark:bg-slate-900 shadow-md border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center hover:bg-slate-50 focus-ring"
+            onClick={() => setZoomLevel((z) => Math.max(0.75, z - 0.25))}
+            aria-label="Zoom out"
+            className="w-11 h-11 rounded-xl bg-white dark:bg-stone-900 shadow-md border border-[#E7E0D2] dark:border-stone-700 text-[#292524] dark:text-stone-200 flex items-center justify-center hover:bg-[#FFF8E7] focus-ring cursor-pointer"
           >
             <Minus className="w-4 h-4" />
           </button>
-
-          {/* Center / Locate Me */}
           <button
             type="button"
-            onClick={() => {
-              setZoomLevel(1);
-              setSelectedPandalId(pandals[0]?.id || null);
-            }}
-            aria-label="Reset map center"
-            title="Recenter Map"
-            className="w-10 h-10 rounded-lg bg-white dark:bg-slate-900 shadow-md border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 flex items-center justify-center hover:bg-slate-50 focus-ring"
+            onClick={() => { setZoomLevel(1); setSelectedPandalId(null); }}
+            aria-label="Reset map view"
+            className="w-11 h-11 rounded-xl bg-white dark:bg-stone-900 shadow-md border border-[#E7E0D2] dark:border-stone-700 flex items-center justify-center hover:bg-[#FFF8E7] focus-ring cursor-pointer"
           >
-            <Compass className="w-4 h-4 text-[#9F1239]" />
+            <Compass className="w-4 h-4 text-[#C8102E]" />
           </button>
         </div>
 
-        {/* 4. Floating Action Pills (Left Bottom - Inspired by Screenshot) */}
-        <div className="absolute left-3 bottom-36 sm:bottom-32 z-20 flex flex-col gap-2">
-          {/* Nearby Pandals Toggle */}
+        {/* ── 4. Floating left actions ── */}
+        <div className="absolute left-3 bottom-4 z-20 flex flex-col gap-2">
+          {/* My Location */}
           <button
             type="button"
-            onClick={() => setShowNearbyOnly((prev) => !prev)}
-            aria-pressed={showNearbyOnly}
-            className={`touch-target-min px-3 py-2 rounded-lg text-xs font-semibold shadow-md border transition-colors flex items-center gap-1.5 ${
-              showNearbyOnly
-                ? "bg-[#9F1239] text-white border-[#9F1239]"
-                : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800 hover:bg-slate-50"
+            onClick={handleLocate}
+            aria-label="Use my location"
+            title={locationDenied ? "Location access denied" : "Center on my location"}
+            className={`touch-target-min px-3 py-2 rounded-xl text-xs font-semibold shadow-md border flex items-center gap-1.5 transition-colors focus-ring cursor-pointer ${
+              locationDenied
+                ? "bg-[#FFF0F0] border-[#FECACA] text-[#C8102E]"
+                : "bg-white dark:bg-stone-900 border-[#E7E0D2] dark:border-stone-700 text-[#292524] dark:text-stone-200 hover:bg-[#FFF8E7]"
             }`}
           >
-            <MapPin className="w-3.5 h-3.5 text-[#D97706]" />
-            <span>Nearby Pandals</span>
+            <LocateFixed className="w-3.5 h-3.5" />
+            <span>{locationDenied ? "Location off" : "My Location"}</span>
           </button>
 
-          {/* Route Line Toggle */}
+          {/* Route toggle */}
           <button
             type="button"
-            onClick={() => setShowRouteLine((r) => !r)}
-            aria-pressed={showRouteLine}
-            className={`touch-target-min px-3 py-2 rounded-lg text-xs font-semibold shadow-md border transition-colors flex items-center gap-1.5 ${
-              showRouteLine
-                ? "bg-[#9F1239] text-white border-[#9F1239]"
-                : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800 hover:bg-slate-50"
+            onClick={() => setShowRoute((r) => !r)}
+            aria-pressed={showRoute}
+            className={`touch-target-min px-3 py-2 rounded-xl text-xs font-semibold shadow-md border flex items-center gap-1.5 transition-colors focus-ring cursor-pointer ${
+              showRoute
+                ? "bg-[#C8102E] border-[#C8102E] text-white"
+                : "bg-white dark:bg-stone-900 border-[#E7E0D2] dark:border-stone-700 text-[#292524] dark:text-stone-200 hover:bg-[#FFF8E7]"
             }`}
           >
-            <Layers className="w-3.5 h-3.5 text-slate-500" />
-            <span>{showRouteLine ? "Hide Route" : "Show Route"}</span>
+            <Route className="w-3.5 h-3.5" />
+            <span>{showRoute ? "Hide Route" : "Route Planner"}</span>
           </button>
+
+          {/* Add pandal shortcut */}
+          {onNavigateToSubmit && (
+            <button
+              type="button"
+              onClick={onNavigateToSubmit}
+              aria-label="Suggest a new pandal"
+              className="touch-target-min px-3 py-2 rounded-xl text-xs font-semibold shadow-md border border-[#D4A72C] bg-[#FFF8E7] text-[#92400E] flex items-center gap-1.5 hover:bg-[#FEF3C7] focus-ring cursor-pointer"
+            >
+              <MapPin className="w-3.5 h-3.5 text-[#D4A72C]" />
+              <span>Add Pandal</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 5. Selected Pandal Information Overlay Panel (Bottom Sheet style) */}
+      {/* ── 5. Selected Pandal Bottom Sheet ── */}
       {selectedPandal && (
-        <div className="absolute bottom-16 md:bottom-2 left-2 right-2 sm:left-4 sm:right-auto sm:w-96 z-30">
-          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 p-4 transition-all">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <div>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  {selectedPandal.tier.replace("_", " ")}
-                </span>
-                <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 mt-1 leading-snug">
-                  {selectedPandal.name}
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {selectedPandal.zone} • #{selectedPandal.codeName}
-                </p>
+        <div className="absolute bottom-0 left-0 right-0 z-30 p-3 pb-safe slide-up">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-2xl border border-[#E7E0D2] dark:border-stone-700 overflow-hidden">
+            {/* Gold accent top bar */}
+            <div className="h-1 bg-gradient-to-r from-[#C8102E] to-[#D4A72C]" />
+
+            <div className="p-4">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  {/* Tier badge */}
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    {selectedPandal.tier === "top_5" && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#C8102E] text-white">
+                        ★ Heritage
+                      </span>
+                    )}
+                    {selectedPandal.tier === "top_10" && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FFF0F0] text-[#C8102E] border border-[#FECACA]">
+                        Top 10
+                      </span>
+                    )}
+                    {selectedPandal.isVerified && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        ✓ Verified
+                      </span>
+                    )}
+                  </div>
+                  <h4 className="text-base font-bold text-[#292524] dark:text-stone-100 leading-tight">
+                    {selectedPandal.name}
+                  </h4>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <MapPin className="w-3.5 h-3.5 text-[#78716C] shrink-0" />
+                    <p className="text-xs text-[#78716C] truncate">{selectedPandal.zone}</p>
+                  </div>
+                </div>
+
+                {/* Save / dismiss */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onToggleSave(selectedPandal.id)}
+                    aria-label={savedPandalIds.has(selectedPandal.id) ? "Remove from route" : "Save to route"}
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-colors focus-ring cursor-pointer ${
+                      savedPandalIds.has(selectedPandal.id)
+                        ? "bg-[#FFF8E7] border-[#D4A72C] text-[#D4A72C]"
+                        : "bg-white dark:bg-stone-800 border-[#E7E0D2] text-[#78716C] hover:text-[#292524]"
+                    }`}
+                  >
+                    {savedPandalIds.has(selectedPandal.id) ? (
+                      <BookmarkCheck className="w-4 h-4 fill-current" />
+                    ) : (
+                      <Bookmark className="w-4 h-4" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPandalId(null)}
+                    aria-label="Close pandal info"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center border border-[#E7E0D2] text-[#78716C] hover:bg-[#F4F1E8] focus-ring cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
-              {/* Bookmark Button */}
-              <button
-                type="button"
-                onClick={() => onToggleSave(selectedPandal.id)}
-                aria-label="Save pandal"
-                className={`touch-target-min w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-700 ${
-                  savedPandalIds.has(selectedPandal.id)
-                    ? "text-[#D97706] bg-amber-50"
-                    : "text-slate-400 hover:text-slate-600"
-                }`}
-              >
-                {savedPandalIds.has(selectedPandal.id) ? (
-                  <BookmarkCheck className="w-4 h-4 fill-current" />
-                ) : (
-                  <Bookmark className="w-4 h-4" />
-                )}
-              </button>
-            </div>
+              {/* Crowd status + transport + time */}
+              {selectedPandal.crowdLevel && (
+                <div className="flex flex-wrap items-center gap-2 py-2.5 border-t border-[#E7E0D2] dark:border-stone-700 mb-3">
+                  <StatusBadge
+                    level={
+                      selectedPandal.crowdLevel === "LOW"  ? "low"
+                      : selectedPandal.crowdLevel === "HIGH" ? "heavy"
+                      : "moderate"
+                    }
+                    size="sm"
+                  />
+                  <span className="flex items-center gap-1 text-xs text-[#78716C]">
+                    {selectedPandal.vehicleAllowed === "all_vehicles" ? (
+                      <Car className="w-3.5 h-3.5 text-[#16A34A]" />
+                    ) : (
+                      <Footprints className="w-3.5 h-3.5 text-[#D97706]" />
+                    )}
+                    {selectedPandal.vehicleAllowed === "all_vehicles" ? "Toto Access" : "Walk Corridor"}
+                  </span>
+                  {selectedPandal.reportTime && (
+                    <span className="flex items-center gap-1 text-xs text-[#A8A29E] ml-auto">
+                      <Clock className="w-3 h-3" />
+                      {selectedPandal.reportTime}
+                    </span>
+                  )}
+                </div>
+              )}
 
-            {/* Quick Status / Transport Tags */}
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400 mb-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <StatusBadge
-                level={
-                  selectedPandal.crowdLevel === "LOW"
-                    ? "low"
-                    : selectedPandal.crowdLevel === "HIGH"
-                    ? "heavy"
-                    : "moderate"
-                }
-                size="sm"
-              />
-              <span className="flex items-center gap-1">
-                {selectedPandal.vehicleAllowed === "all_vehicles" ? (
-                  <Car className="w-3.5 h-3.5 text-emerald-600" />
-                ) : (
-                  <Footprints className="w-3.5 h-3.5 text-amber-600" />
-                )}
-                {selectedPandal.vehicleAllowed === "all_vehicles" ? "Toto Access" : "Walk Corridor"}
-              </span>
-              <span className="flex items-center gap-1 text-slate-400 ml-auto">
-                <Clock className="w-3 h-3" />
-                15m ago
-              </span>
+              {/* Action buttons */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onOpenDetailsModal(selectedPandal)}
+                  className="touch-target-min py-2.5 px-3 rounded-xl bg-[#F4F1E8] hover:bg-[#E7E0D2] dark:bg-stone-800 dark:hover:bg-stone-700 text-[#292524] dark:text-stone-200 text-xs font-semibold text-center focus-ring cursor-pointer transition-colors"
+                >
+                  View Details
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRoute(true);
+                    if (!savedPandalIds.has(selectedPandal.id)) onToggleSave(selectedPandal.id);
+                  }}
+                  className="touch-target-min py-2.5 px-3 rounded-xl bg-[#C8102E] hover:bg-[#9F1239] text-white text-xs font-semibold text-center focus-ring cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Navigation className="w-3.5 h-3.5" />
+                  Add to Route
+                </button>
+              </div>
             </div>
+          </div>
+        </div>
+      )}
 
-            {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => onOpenDetailsModal(selectedPandal)}
-                className="touch-target-min py-2 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 text-xs font-semibold text-center focus-ring cursor-pointer"
-              >
-                Details & Gates
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowRouteLine(true)}
-                className="touch-target-min py-2 px-3 rounded-lg bg-[#9F1239] hover:bg-[#881337] text-white text-xs font-semibold text-center focus-ring cursor-pointer flex items-center justify-center gap-1"
-              >
-                <Navigation className="w-3 h-3" />
-                <span>Navigate Route</span>
-              </button>
-            </div>
+      {/* Empty state when search yields no results */}
+      {filteredPins.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+          <div className="bg-white dark:bg-stone-900 rounded-2xl shadow-lg border border-[#E7E0D2] p-5 text-center mx-4 pointer-events-auto">
+            <MapPin className="w-8 h-8 text-[#D4A72C] mx-auto mb-2" />
+            <p className="font-semibold text-sm text-[#292524]">No pandals found</p>
+            <p className="text-xs text-[#78716C] mt-1">Try adjusting your search or filters</p>
+            <button
+              type="button"
+              onClick={() => { setSearchQuery(""); setSelectedFilter("all"); }}
+              className="mt-3 px-4 py-2 rounded-lg bg-[#C8102E] text-white text-xs font-semibold focus-ring cursor-pointer"
+            >
+              Clear filters
+            </button>
           </div>
         </div>
       )}
