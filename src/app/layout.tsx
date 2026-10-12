@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { PreferenceProvider } from "@/components/preferences/PreferenceProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,14 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cooch Behar Durga Puja Interactive Guide & Navigation App",
+  title: "Cooch Behar Puja Guide — Interactive Map & Pandal Guide",
   description:
-    "Mobile-first PWA guide for exploring Durga Puja pandals, routes, amenities, and crowd updates in Cooch Behar.",
-  applicationName: "Cooch Behar Durga Puja Guide",
+    "Mobile-first, accessible guide for exploring Durga Puja pandals, routes, amenities, and real-time crowd updates across Cooch Behar, West Bengal.",
+  applicationName: "Cooch Behar Puja Guide",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Cooch Behar Durga Puja Guide",
+    title: "Cooch Behar Puja Guide",
   },
   formatDetection: {
     telephone: false,
@@ -41,8 +42,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full`}>
-      <body className="min-h-full flex flex-col antialiased bg-white dark:bg-[#0F172A] text-slate-900 dark:text-slate-100">
-        {children}
+      <body className="min-h-full flex flex-col antialiased bg-white dark:bg-[#0F172A] text-slate-900 dark:text-slate-100 transition-colors">
+        <PreferenceProvider>{children}</PreferenceProvider>
       </body>
     </html>
   );
